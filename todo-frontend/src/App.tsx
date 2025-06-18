@@ -1,16 +1,27 @@
-import { useEffect, useState } from 'react';
-import './App.css';
-import LoginRegister from './page/LoginRegister';
-import TodoPage from './page/TodoPage';
+import { useState } from 'react';
+import LoginForm from './components/LoginForm.jsx';
+import TodoApp from './components/TodoApp';
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
 
-  useEffect(() => {
-    setIsLoggedIn(!!localStorage.getItem('token'));
-  }, []);
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsLoggedIn(false);
+  };
 
-  return <>{isLoggedIn ? <TodoPage /> : <LoginRegister onLogin={() => setIsLoggedIn(true)} />}</>;
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className="p-4 text-right">
+        {isLoggedIn && (
+          <button onClick={handleLogout} className="text-blue-600 hover:underline">
+            Đăng xuất
+          </button>
+        )}
+      </div>
+      {isLoggedIn ? <TodoApp /> : <LoginForm onLogin={() => setIsLoggedIn(true)} />}
+    </div>
+  );
 }
 
-export default App
+export default App;

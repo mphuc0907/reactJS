@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Todo;
 use Illuminate\Http\Request;
+use App\Models\User;
 
 class TodoController extends Controller
 {
@@ -13,7 +14,12 @@ class TodoController extends Controller
      */
     public function index(Request $request)
     {
-        $todos = $request->user()->todos()->orderBy('stt')->get();
+        $user = $request->user();
+
+        $todos = $user->isAdmin()
+            ? Todo::orderBy('stt')->get()
+            : $user->todos()->orderBy('stt')->get();
+
         return response()->json($todos);
     }
 
@@ -46,42 +52,45 @@ class TodoController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show($id)
-    {
-        $todo = Todo::where('id', $id)->where('id_user', auth()->id())->firstOrFail();
-        return response()->json($todo);
+    private function findTodo($id)
+{
+    $todo = Todo::findOrFail($id);
+
+    if (auth()->user()->isAdmin() || $todo->id_user === auth()->id()) {
+        return $todo;
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $id)
-    {
-        $todo = Todo::where('id', $id)->where('id_user', auth()->id())->firstOrFail();
+    abort(403, 'Bạn không có quyền truy cập Todo này');
+}
 
-        $data = $request->validate([
-            'title'      => 'sometimes|required|string|max:255',
-            'stt'        => 'sometimes|required|integer',
-            'content'    => 'nullable|string',
-            'status'     => 'in:pending,in_progress,done',
-            'start_date' => 'nullable|date',
-            'end_date'   => 'nullable|date|after_or_equal:start_date',
-        ]);
+public function show($id)
+{
+    $todo = $this->findTodo($id);
+    return response()->json($todo);
+}
 
-        $todo->update($data);
+public function update(Request $request, $id)
+{
+    $todo = $this->findTodo($id);
 
-        return response()->json(['message' => 'Cập nhật thành công', 'todo' => $todo]);
-    }
+    $data = $request->validate([
+        'title'      => 'sometimes|required|string|max:255',
+        'stt'        => 'sometimes|required|integer',
+        'content'    => 'nullable|string',
+        'status'     => 'in:pending,in_progress,done',
+        'start_date' => 'nullable|date',
+        'end_date'   => 'nullable|date|after_or_equal:start_date',
+    ]);
 
+    $todo->update($data);
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy($id)
-    {
-        $todo = Todo::where('id', $id)->where('id_user', auth()->id())->firstOrFail();
-        $todo->delete();
+    return response()->json(['message' => 'Cập nhật thành công', 'todo' => $todo]);
+}
 
-        return response()->json(['message' => 'Xóa thành công']);
-    }
+public function destroy($id)
+{
+    $todo = $this->findTodo($id);
+    $todo->delete();
+    return response()->json(['message' => 'Xóa thành công']);
+}
 }

@@ -11,6 +11,10 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
+    public function isAdmin()
+    {
+        return $this->role === 'admin';
+    }
     public function todos()
     {
         return $this->hasMany(Todo::class, 'id_user');
