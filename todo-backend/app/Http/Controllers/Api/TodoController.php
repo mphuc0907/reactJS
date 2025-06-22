@@ -17,7 +17,7 @@ class TodoController extends Controller
         $user = $request->user();
 
         $todos = $user->isAdmin()
-            ? Todo::orderBy('stt')->get()
+            ? Todo::with('user')->orderBy('stt')->get()
             : $user->todos()->orderBy('stt')->get();
 
         return response()->json($todos);
@@ -28,69 +28,75 @@ class TodoController extends Controller
      */
     public function store(Request $request)
     {
-        $data = $request->validate([
+        $request->validate([
             'title'      => 'required|string|max:255',
+            'stt'        => 'required|integer',
             'content'    => 'nullable|string',
-            'status'     => 'in:pending,in_progress,    ',
+            'status'     => 'in:pending,in_progress,done',
             'start_date' => 'nullable|date',
             'end_date'   => 'nullable|date|after_or_equal:start_date',
+            'id_user'    => 'nullable|exists:users,id', // chỉ dùng cho admin
         ]);
 
-        $data['id_user'] = auth()->id();
+        $user = $request->user();
 
-        // Lấy số thứ tự lớn nhất của user hiện tại
-        $maxStt = Todo::where('id_user', auth()->id())->max('stt');
+        $data = $request->only(['title', 'stt', 'content', 'status', 'start_date', 'end_date']);
 
-        // Nếu chưa có todo nào thì maxStt sẽ là null → gán stt = 1
-        $data['stt'] = $maxStt ? $maxStt + 1 : 1;
+        // Nếu là admin và có id_user thì dùng id_user chỉ định
+        if ($user->isAdmin() && $request->has('id_user')) {
+            $data['id_user'] = $request->id_user;
+        } else {
+            $data['id_user'] = $user->id;
+        }
 
         $todo = Todo::create($data);
 
-        return response()->json(['message' => 'Tạo mới thành công', 'todo' => $todo]);
+        return response()->json(['message' => 'Tạo todo thành công', 'todo' => $todo], 201);
     }
 
     /**
      * Display the specified resource.
      */
     private function findTodo($id)
-{
-    $todo = Todo::findOrFail($id);
+    {
+        $todo = Todo::findOrFail($id);
+        $user = auth()->user();
 
-    if (auth()->user()->isAdmin() || $todo->id_user === auth()->id()) {
-        return $todo;
+        if ($user->isAdmin() || $todo->id_user === $user->id) {
+            return $todo;
+        }
+
+        abort(403, 'Bạn không có quyền truy cập Todo này');
     }
 
-    abort(403, 'Bạn không có quyền truy cập Todo này');
-}
+    public function show($id)
+    {
+        $todo = $this->findTodo($id);
+        return response()->json($todo);
+    }
 
-public function show($id)
-{
-    $todo = $this->findTodo($id);
-    return response()->json($todo);
-}
+    public function update(Request $request, $id)
+    {
+        $todo = $this->findTodo($id);
 
-public function update(Request $request, $id)
-{
-    $todo = $this->findTodo($id);
+        $data = $request->validate([
+            'title'      => 'sometimes|required|string|max:255',
+            'stt'        => 'sometimes|required|integer',
+            'content'    => 'nullable|string',
+            'status'     => 'in:pending,in_progress,done',
+            'start_date' => 'nullable|date',
+            'end_date'   => 'nullable|date|after_or_equal:start_date',
+        ]);
 
-    $data = $request->validate([
-        'title'      => 'sometimes|required|string|max:255',
-        'stt'        => 'sometimes|required|integer',
-        'content'    => 'nullable|string',
-        'status'     => 'in:pending,in_progress,done',
-        'start_date' => 'nullable|date',
-        'end_date'   => 'nullable|date|after_or_equal:start_date',
-    ]);
+        $todo->update($data);
 
-    $todo->update($data);
+        return response()->json(['message' => 'Cập nhật thành công', 'todo' => $todo]);
+    }
 
-    return response()->json(['message' => 'Cập nhật thành công', 'todo' => $todo]);
-}
-
-public function destroy($id)
-{
-    $todo = $this->findTodo($id);
-    $todo->delete();
-    return response()->json(['message' => 'Xóa thành công']);
-}
+    public function destroy($id)
+    {
+        $todo = $this->findTodo($id);
+        $todo->delete();
+        return response()->json(['message' => 'Xóa thành công']);
+    }
 }

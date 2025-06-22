@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-   public function register(Request $request)
+    public function register(Request $request)
     {
         $request->validate([
             'name'     => 'required|string|max:255',
@@ -21,6 +21,7 @@ class AuthController extends Controller
             'name'     => $request->name,
             'email'    => $request->email,
             'password' => Hash::make($request->password),
+            'role'     => 'user', // mặc định
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -39,8 +40,7 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $user = User
-        ::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Thông tin không chính xác'], 401);

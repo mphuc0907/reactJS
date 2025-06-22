@@ -22,4 +22,13 @@ class Todo extends Model
     {
         return $this->belongsTo(User::class, 'id_user');
     }
+    public function todos()
+    {
+        return $this->hasMany(Todo::class, 'id_user');
+    }
+
+    public function isAdmin()
+    {
+        return $this->role === 'admin';
+    }
 }
