@@ -33,9 +33,9 @@ function MainPage() {
 
         {/* Admin routes */}
         <Route element={<AdminLayout />}>
-          <Route path="/users" element={<UserList />} />
-          <Route path="/todos" element={<AllTodos />} />
-          <Route path="/todos/assign" element={<AssignTodo />} />
+          <Route path="/admin/users" element={<UserList />} />
+          <Route path="/admin/todos" element={<AllTodos />} />
+          <Route path="/admin/todos/assign" element={<AssignTodo />} />
         </Route>
 
         {/* Default redirect or 404 could be added here */}

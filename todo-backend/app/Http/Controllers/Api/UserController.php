@@ -8,12 +8,13 @@ use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
-    public function index(Request $request)
-{
-    if (! $request->user()->isAdmin()) {
-        return response()->json(['message' => 'Bạn không có quyền truy cập'], 403);
-    }
+    public function index()
+    {
+        // Chỉ cho admin
+        if (auth()->user()->role !== 'admin') {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
 
-    return response()->json(User::select('id', 'name', 'email', 'role')->get());
-}
+        return User::select('id', 'name', 'email')->get();
+    }
 }
