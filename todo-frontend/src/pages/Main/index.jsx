@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import Login from '../Auth/Login';
-import Register from '../auth/Register';
+import Register from '../Auth/Register';
 import MyTodos from '../User/MyTodos';
 import AddTodo from '../User/AddTodo';
 import EditTodo from '../User/EditTodo';
