@@ -7,7 +7,7 @@ services:
     volumes:
       - ./todo-backend:/var/www
     ports:
-      - "9000:9000"
+      - "8000:8000"
     networks:
       - app-network
 
@@ -17,7 +17,7 @@ services:
     volumes:
       - ./todo-frontend:/app
     ports:
-      - "3000:3000"
+      - "5174:5174"
     networks:
       - app-network
 

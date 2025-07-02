@@ -16,11 +16,21 @@ class TodoController extends Controller
     {
         $user = $request->user();
 
-        $todos = $user->isAdmin()
-            ? Todo::with('user')->orderBy('stt')->get()
-            : $user->todos()->orderBy('stt')->get();
+        $query = Todo::query();
 
-        return response()->json($todos);
+        if (!$user->isAdmin()) {
+            $query->where('id_user', $user->id);
+        }
+
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%$search%")
+                    ->orWhere('content', 'like', "%$search%");
+            });
+        }
+
+        return response()->json($query->latest()->get());
     }
 
     /**
@@ -28,46 +38,34 @@ class TodoController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'title'      => 'required|string|max:255',
-            'stt'        => 'required|integer',
-            'content'    => 'nullable|string',
-            'status'     => 'in:pending,in_progress,done',
-            'start_date' => 'nullable|date',
-            'end_date'   => 'nullable|date|after_or_equal:start_date',
-            'id_user'    => 'nullable|exists:users,id', // chỉ dùng cho admin
-        ]);
-
         $user = $request->user();
 
-        $data = $request->only(['title', 'stt', 'content', 'status', 'start_date', 'end_date']);
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'nullable|string',
+            'status' => 'in:pending,in_progress,done,review,overdue',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'id_user' => 'nullable|exists:users,id', // Cho phép admin tạo cho user khác
+        ]);
 
-        // Nếu là admin và có id_user thì dùng id_user chỉ định
-        if ($user->isAdmin() && $request->has('id_user')) {
-            $data['id_user'] = $request->id_user;
-        } else {
-            $data['id_user'] = $user->id;
-        }
+        $todo = Todo::create([
+            'title' => $request->title,
+            'content' => $request->content,
+            'status' => $request->status ?? 'pending',
+            'start_date' => $request->start_date,
+            'end_date' => $request->end_date,
+            'id_user' => $user->isAdmin()
+                ? ($request->id_user ?? $user->id)
+                : $user->id,
+        ]);
 
-        $todo = Todo::create($data);
-
-        return response()->json(['message' => 'Tạo todo thành công', 'todo' => $todo], 201);
+        return response()->json($todo, 201);
     }
 
     /**
      * Display the specified resource.
      */
-    private function findTodo($id)
-    {
-        $todo = Todo::findOrFail($id);
-        $user = auth()->user();
-
-        if ($user->isAdmin() || $todo->id_user === $user->id) {
-            return $todo;
-        }
-
-        abort(403, 'Bạn không có quyền truy cập Todo này');
-    }
 
     public function show($id)
     {
@@ -77,26 +75,36 @@ class TodoController extends Controller
 
     public function update(Request $request, $id)
     {
-        $todo = $this->findTodo($id);
+        $todo = Todo::findOrFail($id);
+        $this->authorizeAccess($todo);
 
-        $data = $request->validate([
-            'title'      => 'sometimes|required|string|max:255',
-            'stt'        => 'sometimes|required|integer',
-            'content'    => 'nullable|string',
-            'status'     => 'in:pending,in_progress,done',
-            'start_date' => 'nullable|date',
-            'end_date'   => 'nullable|date|after_or_equal:start_date',
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'nullable|string',
+            'status' => 'in:pending,in_progress,done,review,overdue',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
-        $todo->update($data);
+        $todo->update($request->only(['title', 'content', 'status', 'start_date', 'end_date']));
 
-        return response()->json(['message' => 'Cập nhật thành công', 'todo' => $todo]);
+        return response()->json($todo);
     }
 
     public function destroy($id)
     {
-        $todo = $this->findTodo($id);
+        $todo = Todo::findOrFail($id);
+        $this->authorizeAccess($todo);
+
         $todo->delete();
-        return response()->json(['message' => 'Xóa thành công']);
+        return response()->json(['message' => 'Todo deleted']);
+    }
+
+    private function authorizeAccess($todo)
+    {
+        $user = auth()->user();
+        if (!$user->isAdmin() && $todo->id_user !== $user->id) {
+            abort(403, 'Unauthorized');
+        }
     }
 }
